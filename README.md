@@ -32,10 +32,25 @@ make -j
 
 대회측에서 공개한 unlabeled_data에서 노이즈를 추출하기 위해, 화자 분리 및 음성 분할 기술을 이용하여 데이터를 분리함
 
+#### 모델 다운로드
+
+```bash
+cd espnet/egs2/librimix/enh_diar1
+mkdir models
+cd models
+
+git lfs install
+git clone https://huggingface.co/soumi-maiti/libri23mix_eend_ss
+```
+
 #### 코드 실행 방법
 
 ```
-python 01...
+python 01_create_metadata.py
+```
+
+```
+bash 01_diarization_and_separation.sh
 ```
 
 
