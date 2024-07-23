@@ -4,6 +4,8 @@ import glob
 import shutil
 import torch
 
+from common import APP_ROOT
+
 USE_ONNX = True
 
 # model = load_silero_vad()
@@ -18,7 +20,7 @@ model, utils = torch.hub.load(repo_or_dir='snakers4/silero-vad',
   VADIterator,
   collect_chunks) = utils
  
-data_dir = "data/unlabeled_data"
+data_dir = os.path.join(APP_ROOT, "data/unlabeled_data")
 
 audio_paths = glob.glob(os.path.join(data_dir, "**/*.wav"), recursive=True)
 
