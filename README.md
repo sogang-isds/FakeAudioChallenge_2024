@@ -34,7 +34,8 @@ LibriMix 논문을 참고하여 노이즈와 음성을 합성하는 과정을 �
 
 대회측에서 공개한 unlabeled_data에서 노이즈를 추출하기 위해, 화자 분리 및 음성 분할 기술을 이용하여 데이터를 분리함
 
-- 참고논문: [EEND-SS: Joint End-to-End Neural Speaker Diarization and Speech Separation for Flexible Number of Speakers](https://arxiv.org/abs/2203.17068)
+- 참고논문(데이터셋): [LibriMix: An Open-Source Dataset for Generalizable Speech Separation](https://arxiv.org/abs/2005.11262)
+- 참고논문(모델):  [EEND-SS: Joint End-to-End Neural Speaker Diarization and Speech Separation for Flexible Number of Speakers](https://arxiv.org/abs/2203.17068)
 - 사전학습 모델: https://huggingface.co/soumi-maiti/libri23mix_eend_ss
 - 코드: https://github.com/espnet/espnet/tree/master/egs2/librimix/enh_diar1
 

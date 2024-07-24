@@ -27,16 +27,12 @@ def get_audio_level(file_path):
     return avg_db
 
 
-
 noise_dir = "data/marblenet_n"
-train_dir = "data/train"
-noise_paths = glob.glob(os.path.join(APP_ROOT, noise_dir, "**/*.wav"), recursive=True)
-train_paths = glob.glob(os.path.join(APP_ROOT, train_dir, "**/*.wav"), recursive=True)
+train_dir = "data/sample_data/train"
+output_json = "data/metadata.json"
 
-# noise file
-
-# for audio_path in noise_paths:
-#     print(audio_path)
+noise_paths = glob.glob(os.path.join(APP_ROOT, noise_dir, "*.wav"), recursive=True)
+train_paths = glob.glob(os.path.join(APP_ROOT, train_dir, "*.wav"), recursive=True)
 
 outputs = []
 for audio_path in train_paths:
@@ -59,26 +55,23 @@ for audio_path in train_paths:
         start = random.randint(0, idx) / 8000
 
     mixture_dict = {
-        'mixture_name': filename,
-        's1': [
+        "mixture_name": filename,
+        "s1": [
             {
-                'file': audio_path,
-                'lvl': float(level),
-                'start': start,
+                "file": audio_path,
+                "lvl": float(level),
+                "start": start,
             }
         ],
-        'noise': [
-            {
-                'file': noise_path,
-                'lvl': float(noise_level),
-                'start': 0
-            }
-        ]
+        "noise": [{"file": noise_path, "lvl": float(noise_level), "start": 0}],
     }
 
     outputs.append(mixture_dict)
 
 # save to json
-save_to_json(outputs, 'metadata.json')
+save_to_json(outputs, output_json)
 
+print("\n===== Summary =====")
+print(f"ouput file: {output_json}")
+print(f"Mixtures: {len(train_paths)}")
 print("Finish")

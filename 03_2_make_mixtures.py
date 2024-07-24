@@ -8,8 +8,8 @@ import pyloudnorm
 from scipy.signal import resample_poly
 
 
-json_file = os.path.join(APP_ROOT, 'metadata.json')
-out_dir = os.path.join(APP_ROOT, 'data/mixture')
+json_file = os.path.join(APP_ROOT, "data/metadata.json")
+out_dir = os.path.join(APP_ROOT, "data/mixture")
 sample_rate = 8000
 
 with open(json_file, "r") as f:
@@ -41,16 +41,21 @@ for mix in tqdm(total_meta):
         source_utts = []
         for utt in mix[source]:
             utt_fs = sf.SoundFile(utt["file"]).samplerate
-            audio, fs = sf.read(utt["file"], start=int(0 * utt_fs),
-                                stop=int(5 * utt_fs))
+            audio, fs = sf.read(
+                utt["file"], start=int(0 * utt_fs), stop=int(5 * utt_fs)
+            )
 
             # assert len(audio.shape) == 1, "we currently not support multichannel"
             if len(audio.shape) > 1:
                 audio = audio[:, utt["channel"]]  # TODO
-            audio = audio - np.mean(audio)  # zero mean cos librispeech is messed up sometimes
+            audio = audio - np.mean(
+                audio
+            )  # zero mean cos librispeech is messed up sometimes
             # if source != "noise":
             # audio = resample_and_norm(audio, fs, sample_rate, utt["lvl"])
-            audio = np.pad(audio, (int(utt["start"] * sample_rate), 0), "constant")  # pad the beginning
+            audio = np.pad(
+                audio, (int(utt["start"] * sample_rate), 0), "constant"
+            )  # pad the beginning
             source_utts.append(audio)
             maxlength = max(len(audio), maxlength)
 
@@ -60,7 +65,7 @@ for mix in tqdm(total_meta):
     for s in sources.keys():
         for i in range(len(sources[s])):
             tmp = sources[s][i]
-            sources[s][i] = np.pad(tmp, (0, maxlength - len(tmp)), 'constant')
+            sources[s][i] = np.pad(tmp, (0, maxlength - len(tmp)), "constant")
 
     # mix n sum
     tot_mixture = None
@@ -68,15 +73,20 @@ for mix in tqdm(total_meta):
         if s == "noise":
             continue
         source_mix = np.sum(sources[s], 0)
-        
+
         if indx == 0:
             tot_mixture = source_mix
         else:
             tot_mixture += source_mix
-   
+
     s = "noise"
     source_mix = np.sum(sources[s], 0)
-    
+
     tot_mixture += source_mix
     os.makedirs(out_dir, exist_ok=True)
     sf.write(os.path.join(out_dir, filename + ".wav"), tot_mixture, sample_rate)
+
+print("\n===== Summary =====")
+print("output_dir:", out_dir)
+print(f"Total mixtures: {len(total_meta)}")
+print("Finish")

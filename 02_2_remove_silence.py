@@ -4,8 +4,7 @@ import shutil
 import librosa
 
 
-
-data_dir = "data/02_noise"
+data_dir = "data/noise"
 
 
 def detect_no_noise(file_path):
@@ -15,7 +14,9 @@ def detect_no_noise(file_path):
     # 프레임 단위로 RMS 에너지 계산
     frame_length = 1024
     hop_length = 512
-    rms_list = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length)
+    rms_list = librosa.feature.rms(
+        y=y, frame_length=frame_length, hop_length=hop_length
+    )
     rms_list = list(rms_list[0])
     # count 0 elems in rms_list
     zero_count = 0
@@ -32,7 +33,8 @@ def detect_no_noise(file_path):
 
 
 import glob
-output_dir = 'data/no_noise'
+
+output_dir = "data/no_noise"
 os.makedirs(output_dir, exist_ok=True)
 
 audio_paths = glob.glob(os.path.join(data_dir, "**/*.wav"), recursive=True)
@@ -44,15 +46,18 @@ for audio_path in audio_paths:
     result = detect_no_noise(audio_path)
 
     if result:
-        dir_num = audio_path.split('/')[-2]
+        dir_num = audio_path.split("/")[-2]
         filename, file_ext = os.path.splitext(os.path.basename(audio_path))
-        file = f'{filename}_{dir_num}_{result:.2f}{file_ext}'
+        file = f"{filename}_{dir_num}_{result:.2f}{file_ext}"
         output_s_path = os.path.join(output_dir, file)
         shutil.copyfile(audio_path, output_s_path)
 
         # remove file
-        # os.remove(audio_path)
+        os.remove(audio_path)
 
         silence_count += 1
 
+print("\n===== Summary =====")
+print(f"len(audio_paths): {len(audio_paths)}")
 print(f"Total silence files: {silence_count}")
+print("Finish")

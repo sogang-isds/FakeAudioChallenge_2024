@@ -13,7 +13,7 @@ import nemo.collections.asr as nemo_asr
 # SAMPLE_RATE = 16000
 SAMPLE_RATE = 8000
 
-vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained('vad_marblenet')
+vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained("vad_marblenet")
 
 from omegaconf import OmegaConf
 import copy
@@ -40,8 +40,8 @@ class AudioDataLayer(IterableDataset):
     @property
     def output_types(self):
         return {
-            'audio_signal': NeuralType(('B', 'T'), AudioSignal(freq=self._sample_rate)),
-            'a_sig_length': NeuralType(tuple('B'), LengthsType()),
+            "audio_signal": NeuralType(("B", "T"), AudioSignal(freq=self._sample_rate)),
+            "a_sig_length": NeuralType(tuple("B"), LengthsType()),
         }
 
     def __init__(self, sample_rate):
@@ -56,11 +56,12 @@ class AudioDataLayer(IterableDataset):
         if not self.output:
             raise StopIteration
         self.output = False
-        return torch.as_tensor(self.signal, dtype=torch.float32), \
-               torch.as_tensor(self.signal_shape, dtype=torch.int64)
+        return torch.as_tensor(self.signal, dtype=torch.float32), torch.as_tensor(
+            self.signal_shape, dtype=torch.int64
+        )
 
     def set_signal(self, signal):
-        self.signal = signal.astype(np.float32) / 32768.
+        self.signal = signal.astype(np.float32) / 32768.0
         self.signal_shape = self.signal.size
         self.output = True
 
@@ -71,13 +72,18 @@ class AudioDataLayer(IterableDataset):
 data_layer = AudioDataLayer(sample_rate=cfg.train_ds.sample_rate)
 data_loader = DataLoader(data_layer, batch_size=1, collate_fn=data_layer.collate_fn)
 
+
 # inference method for audio signal (single instance)
 def infer_signal(model, signal):
     data_layer.set_signal(signal)
     batch = next(iter(data_loader))
     audio_signal, audio_signal_len = batch
-    audio_signal, audio_signal_len = audio_signal.to(vad_model.device), audio_signal_len.to(vad_model.device)
-    logits = model.forward(input_signal=audio_signal, input_signal_length=audio_signal_len)
+    audio_signal, audio_signal_len = audio_signal.to(
+        vad_model.device
+    ), audio_signal_len.to(vad_model.device)
+    logits = model.forward(
+        input_signal=audio_signal, input_signal_length=audio_signal_len
+    )
     return logits
 
 
@@ -88,44 +94,40 @@ def infer_signal(model, signal):
 # To simplify the flow, we use single threshold to binarize predictions.
 class FrameVAD:
 
-    def __init__(self, model_definition,
-                 threshold=0.5,
-                 frame_len=2, frame_overlap=2.5,
-                 offset=10):
-        '''
+    def __init__(
+        self, model_definition, threshold=0.5, frame_len=2, frame_overlap=2.5, offset=10
+    ):
+        """
         Args:
           threshold: If prob of speech is larger than threshold, classify the segment to be speech.
           frame_len: frame's duration, seconds
           frame_overlap: duration of overlaps before and after current frame, seconds
           offset: number of symbols to drop for smooth streaming
-        '''
-        self.vocab = list(model_definition['labels'])
-        self.vocab.append('_')
+        """
+        self.vocab = list(model_definition["labels"])
+        self.vocab.append("_")
 
-        self.sr = model_definition['sample_rate']
+        self.sr = model_definition["sample_rate"]
         self.threshold = threshold
         self.frame_len = frame_len
         self.n_frame_len = int(frame_len * self.sr)
         self.frame_overlap = frame_overlap
         self.n_frame_overlap = int(frame_overlap * self.sr)
-        timestep_duration = model_definition['AudioToMFCCPreprocessor']['window_stride']
-        for block in model_definition['JasperEncoder']['jasper']:
-            timestep_duration *= block['stride'][0] ** block['repeat']
-        self.buffer = np.zeros(shape=2 * self.n_frame_overlap + self.n_frame_len,
-                               dtype=np.float32)
+        timestep_duration = model_definition["AudioToMFCCPreprocessor"]["window_stride"]
+        for block in model_definition["JasperEncoder"]["jasper"]:
+            timestep_duration *= block["stride"][0] ** block["repeat"]
+        self.buffer = np.zeros(
+            shape=2 * self.n_frame_overlap + self.n_frame_len, dtype=np.float32
+        )
         self.offset = offset
         self.reset()
 
     def _decode(self, frame, offset=0):
         assert len(frame) == self.n_frame_len
-        self.buffer[:-self.n_frame_len] = self.buffer[self.n_frame_len:]
-        self.buffer[-self.n_frame_len:] = frame
+        self.buffer[: -self.n_frame_len] = self.buffer[self.n_frame_len :]
+        self.buffer[-self.n_frame_len :] = frame
         logits = infer_signal(vad_model, self.buffer).cpu().numpy()[0]
-        decoded = self._greedy_decoder(
-            self.threshold,
-            logits,
-            self.vocab
-        )
+        decoded = self._greedy_decoder(self.threshold, logits, self.vocab)
         return decoded
 
     @torch.no_grad()
@@ -133,16 +135,16 @@ class FrameVAD:
         if frame is None:
             frame = np.zeros(shape=self.n_frame_len, dtype=np.float32)
         if len(frame) < self.n_frame_len:
-            frame = np.pad(frame, [0, self.n_frame_len - len(frame)], 'constant')
+            frame = np.pad(frame, [0, self.n_frame_len - len(frame)], "constant")
         unmerged = self._decode(frame, self.offset)
         return unmerged
 
     def reset(self):
-        '''
+        """
         Reset frame_history and decoder's state
-        '''
+        """
         self.buffer = np.zeros(shape=self.buffer.shape, dtype=np.float32)
-        self.prev_char = ''
+        self.prev_char = ""
 
     @staticmethod
     def _greedy_decoder(threshold, logits, vocab):
@@ -152,7 +154,13 @@ class FrameVAD:
             probas, _ = torch.max(probs, dim=-1)
             probas_s = probs[1].item()
             preds = 1 if probas_s >= threshold else 0
-            s = [preds, str(vocab[preds]), probs[0].item(), probs[1].item(), str(logits)]
+            s = [
+                preds,
+                str(vocab[preds]),
+                probs[0].item(),
+                probs[1].item(),
+                str(logits),
+            ]
         return s
 
 
@@ -163,17 +171,20 @@ def offline_inference(wave_file, STEP=0.025, WINDOW_SIZE=0.5, threshold=0.5):
 
     CHUNK_SIZE = int(FRAME_LEN * SAMPLE_RATE)
 
-    vad = FrameVAD(model_definition={
-        'sample_rate': SAMPLE_RATE,
-        'AudioToMFCCPreprocessor': cfg.preprocessor,
-        'JasperEncoder': cfg.encoder,
-        'labels': cfg.labels
-    },
+    vad = FrameVAD(
+        model_definition={
+            "sample_rate": SAMPLE_RATE,
+            "AudioToMFCCPreprocessor": cfg.preprocessor,
+            "JasperEncoder": cfg.encoder,
+            "labels": cfg.labels,
+        },
         threshold=threshold,
-        frame_len=FRAME_LEN, frame_overlap=(WINDOW_SIZE - FRAME_LEN) / 2,
-        offset=0)
+        frame_len=FRAME_LEN,
+        frame_overlap=(WINDOW_SIZE - FRAME_LEN) / 2,
+        offset=0,
+    )
 
-    wf = wave.open(wave_file, 'rb')
+    wf = wave.open(wave_file, "rb")
 
     empty_counter = 0
 
@@ -199,7 +210,7 @@ def offline_inference(wave_file, STEP=0.025, WINDOW_SIZE=0.5, threshold=0.5):
         elif empty_counter > 0:
             empty_counter -= 1
             if empty_counter == 0:
-                print(' ', end='')
+                print(" ", end="")
 
     # p.terminate()
     vad.reset()
@@ -207,16 +218,19 @@ def offline_inference(wave_file, STEP=0.025, WINDOW_SIZE=0.5, threshold=0.5):
     return preds, proba_b, proba_s
 
 
-data_dir = os.path.join(APP_ROOT, 'data/02_noise')
+data_dir = os.path.join(APP_ROOT, "data/noise")
 audio_paths = glob.glob(os.path.join(data_dir, "**/*.wav"), recursive=True)
 
-print(f'len(audio_paths): {len(audio_paths)}')
+print(f"len(audio_paths): {len(audio_paths)}")
 
-output_s_dir = os.path.join(APP_ROOT, 'data/marblenet_s')
-output_n_dir = os.path.join(APP_ROOT, 'data/marblenet_n')
+output_s_dir = os.path.join(APP_ROOT, "data/marblenet_s")
+output_n_dir = os.path.join(APP_ROOT, "data/marblenet_n")
 
 os.makedirs(output_s_dir, exist_ok=True)
 os.makedirs(output_n_dir, exist_ok=True)
+
+speech_count = 0
+noise_count = 0
 
 for audio_path in audio_paths:
     wave_file = audio_path
@@ -228,16 +242,21 @@ for audio_path in audio_paths:
     dur = librosa.get_duration(audio, sr=sample_rate)
     print(dur)
 
-    threshold=0.5
+    threshold = 0.5
 
     results = []
 
     STEP_LIST = [0.05]
     WINDOW_SIZE_LIST = [0.25]
 
-    for STEP, WINDOW_SIZE in zip(STEP_LIST, WINDOW_SIZE_LIST, ):
-        print(f'====== STEP is {STEP}s, WINDOW_SIZE is {WINDOW_SIZE}s ====== ')
-        preds, proba_b, proba_s = offline_inference(wave_file, STEP, WINDOW_SIZE, threshold)
+    for STEP, WINDOW_SIZE in zip(
+        STEP_LIST,
+        WINDOW_SIZE_LIST,
+    ):
+        print(f"====== STEP is {STEP}s, WINDOW_SIZE is {WINDOW_SIZE}s ====== ")
+        preds, proba_b, proba_s = offline_inference(
+            wave_file, STEP, WINDOW_SIZE, threshold
+        )
         results.append([STEP, WINDOW_SIZE, preds, proba_b, proba_s])
 
     # exit()
@@ -267,7 +286,9 @@ for audio_path in audio_paths:
 
             if start_pos >= 0 and end_pos > 0:
                 count += 1
-                print(f'({count}) speech : {start_pos * step:.2f} to {end_pos * step:.2f}')
+                print(
+                    f"({count}) speech : {start_pos * step:.2f} to {end_pos * step:.2f}"
+                )
                 speech_ranges.append((start_pos * step, end_pos * step))
                 start_pos = -0.1
                 end_pos = -0.1
@@ -280,17 +301,24 @@ for audio_path in audio_paths:
     print(f"speech duration: {speech_sum:.2f}")
     print(f"speech ratio: {speech_ratio:.2f}")
 
-    dir_num = audio_path.split('/')[-2]
+    dir_num = audio_path.split("/")[-2]
     filename, file_ext = os.path.splitext(os.path.basename(audio_path))
 
     if speech_ratio >= 0.2:
         # copy file
-        file = f'{filename}_{dir_num}_{speech_ratio:.2f}{file_ext}'
+        file = f"{filename}_{dir_num}_{speech_ratio:.2f}{file_ext}"
         output_s_path = os.path.join(output_s_dir, file)
         shutil.copyfile(audio_path, output_s_path)
+        speech_count += 1
 
     else:
-        file = f'{filename}_{dir_num}_{speech_ratio:.2f}{file_ext}'
+        file = f"{filename}_{dir_num}_{speech_ratio:.2f}{file_ext}"
         output_n_path = os.path.join(output_n_dir, file)
         shutil.copyfile(audio_path, output_n_path)
+        noise_count += 1
 
+print("\n===== Summary =====")
+print(f"len(audio_paths): {len(audio_paths)}")
+print(f"Total speech files: {speech_count}")
+print(f"Total noise files: {noise_count}")
+print("Finish")
